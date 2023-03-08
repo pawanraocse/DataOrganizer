@@ -14,27 +14,11 @@ import static com.tech.PropKeysEnum.TARGET_FOLDER;
 
 public class DataOrganizerApplication {
 
-    /*
-     * 1. Read config from properties file
-     * 2. Properties file path to be pass in args.
-     * 3. Mention help about properties file and format and the keys
-     * 4. Take input folder path and output folder path in properties file
-     * 5. Exclude file types in properties file
-     * 6. Take Folder structure preference.
-     * 8. Update entry in logs
-     * 9. Make sure to check the integrity upon file move.
-     * 10.Take file exclude pattern from properties file to remove the illegal characters
-     * 11.Make checksum scheme configurable   --Pending
-     * 12.On file copy -- if file already exists, verify if it is same.
-     * 13.Support resume operation
-     * 14.Make file copy threads configurable
-     * 15.Create readme file  -- pending
-     * */
-
-    static Logger logger = LogManager.getLogger(DataOrganizerApplication.class);
+      static Logger logger = LogManager.getLogger(DataOrganizerApplication.class);
 
     private static final String PROP_FILE_NAME = "organizer.properties";
     private static final String TEMP = "temp";
+    private static final String DATA_ORG = "data-organizer";
     private static final String RESOURCES = "resources";
 
     private final Properties properties;
@@ -124,7 +108,7 @@ public class DataOrganizerApplication {
 
     public static File getPropFilePath() {
         final String homeDrive = System.getProperty("user.home");
-        return new File(homeDrive, TEMP + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
+        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
     }
 
     private static void showHelp() {
