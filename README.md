@@ -23,3 +23,14 @@ Small Java based project to arrange an unorganized data into the specified struc
 
 
 At the target folder location, script will create the folder structure based on the values in the excel file and copy the files their.
+
+### How to Start:
+    - Run Java -jar ArrangeData.jar help
+    - Follow the instructions and create file organizer.properties at location
+        {user.home}\temp\resources.
+    - Now run java -jar ArrangeData.jar
+    - For progress, follow the log file app.log at {$user.home}\temp\logs.
+   
+    *NOTE - If any folder which is already copied or in-progress and
+            you want to restart from begining then delete entry with 
+            key START_INDEX_{SOURCE_PATH}
