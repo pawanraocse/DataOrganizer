@@ -142,7 +142,7 @@ public class DataOrganizerApplication {
         printConsoleLog("CHECKSUM_SCHEME    -- Checksum algorithm for validating file before replace.\n\t\t\t\t\t\tDefault is SHA-256, valid algorithms are SHA-1,SHA-256,MD5,CRC32");
         printConsoleLog("REPLACE_CHARS      -- Regex patterns to replace special characters from file names e.g [!@#$%^&]");
 
-        printConsoleLog("\n\nCreate file at path " + getPropFilePath() + " and add the required properties key value pairs.");
+        printConsoleLog("\n\nCreate file at path " + getPropFilePath() + " and add the required properties key value pairs.\n\n");
 
         System.exit(0);
     }
