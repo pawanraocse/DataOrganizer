@@ -5,11 +5,11 @@ import org.apache.logging.log4j.Logger;
 import org.apache.poi.util.StringUtil;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 class PropFileHandler {
@@ -23,7 +23,7 @@ class PropFileHandler {
         Properties prop = new Properties();
         if (new File(filePath).exists()) {
             logger.info("Starting reading prop file {}", filePath);
-            try (InputStream input = new FileInputStream(filePath)) {
+            try (InputStream input = Files.newInputStream(Paths.get(filePath))) {
                 prop.load(input);
 
             } catch (IOException ex) {
@@ -41,7 +41,7 @@ class PropFileHandler {
 
     public static synchronized void flush(Properties properties, File outPutFilePath) throws IOException {
         try (final OutputStream outputstream
-                 = new FileOutputStream(outPutFilePath)) {
+                 = Files.newOutputStream(outPutFilePath.toPath())) {
             properties.store(outputstream, "File Updated");
         }
     }
@@ -50,6 +50,20 @@ class PropFileHandler {
                                  Properties properties, int defaultValue) {
         String value = extractPropertyValue(propertyName, properties);
         return value == null ? defaultValue : Integer.parseInt(value);
+    }
+
+    public static boolean getBoolean(String propertyName,
+                                     Properties properties, boolean defaultValue) {
+        final Object valueObject = getPropertyValueObject(propertyName, properties, defaultValue);
+        try {
+            return Boolean.parseBoolean(String.valueOf(valueObject));
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private static Object getPropertyValueObject(final String propertyName, final Properties properties, final Object defValue) {
+        return properties.getOrDefault(propertyName, defValue);
     }
 
     public static String extractPropertyValue(String propertyName,

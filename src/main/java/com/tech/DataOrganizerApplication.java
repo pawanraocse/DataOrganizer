@@ -12,14 +12,26 @@ import static com.tech.PropKeysEnum.INPUT_FILE;
 import static com.tech.PropKeysEnum.SRC_FOLDER;
 import static com.tech.PropKeysEnum.TARGET_FOLDER;
 
+
+/*todo
+* Add integrity check to compare the source and target folder.
+* Don't stop script on error -- it must keep on running
+* Keep record of files -
+*  Which got successfully migrated
+*  Which got failed to migrate
+* */
+
 public class DataOrganizerApplication {
 
-      static Logger logger = LogManager.getLogger(DataOrganizerApplication.class);
+    static Logger logger = LogManager.getLogger(DataOrganizerApplication.class);
 
     private static final String PROP_FILE_NAME = "organizer.properties";
     private static final String TEMP = "temp";
     private static final String DATA_ORG = "data-organizer";
     private static final String RESOURCES = "resources";
+
+    private static final String LOGS = "logs";
+    private static final String FILES_FAILED = "files-failed.txt";
 
     private final Properties properties;
 
@@ -36,7 +48,7 @@ public class DataOrganizerApplication {
             processExecutor.readTheExcelInputFile();
         } catch (IOException | InterruptedException e) {
             logger.error(e);
-            throw new RuntimeException(e);
+            System.exit(1);
         }
     }
 
@@ -88,10 +100,13 @@ public class DataOrganizerApplication {
                         properties.put(PropKeysEnum.COPY_THREADS.name(), args[i++]);
                         break;
                     case REPLACE_CHARS:
-                        properties.put(PropKeysEnum.REPLACE_CHARS.name(), args);
+                        properties.put(PropKeysEnum.REPLACE_CHARS.name(), args[i++]);
                         break;
                     case CHECKSUM_SCHEME:
-                        properties.put(PropKeysEnum.CHECKSUM_SCHEME.name(), args);
+                        properties.put(PropKeysEnum.CHECKSUM_SCHEME.name(), args[i++]);
+                        break;
+                    case FAIL_FAST:
+                        properties.put(PropKeysEnum.FAIL_FAST.name(), args[i++]);
                         break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + arg);
@@ -111,6 +126,11 @@ public class DataOrganizerApplication {
         return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
     }
 
+    public static File getFailedFileLogPath() {
+        final String homeDrive = System.getProperty("user.home");
+        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_FAILED);
+    }
+
     private static void showHelp() {
         printConsoleLog("Run the executable using the following command line arguments: \n");
         printConsoleLog("INPUT_FILE*        -- Excel file path containing the details of source files and target folder");
@@ -125,6 +145,7 @@ public class DataOrganizerApplication {
         printConsoleLog("COPY_THREADS       -- Number of parallel threads for copy files\n\t\t\t\t\t\tDefault value is 3");
         printConsoleLog("CHECKSUM_SCHEME    -- Checksum algorithm for validating file before replace.\n\t\t\t\t\t\tDefault is SHA-256, valid algorithms are SHA-1,SHA-256,MD5,CRC32");
         printConsoleLog("REPLACE_CHARS      -- Regex patterns to replace special characters from file names e.g [!@#$%^&]");
+        printConsoleLog("FAIL_FAST          -- Fail fast as script hits any error else it will just log the error and keep trying the next paths.\n\t\t\t\t\tDefault is true");
 
         printConsoleLog("\n\nCreate file at path " + getPropFilePath() + " and add the required properties key value pairs.\n\n");
 

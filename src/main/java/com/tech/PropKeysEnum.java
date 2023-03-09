@@ -16,6 +16,7 @@ public enum PropKeysEnum {
     START_INDEX,
     CHECKSUM_SCHEME,
     REPLACE_CHARS,
-    GUID_NAME
+    GUID_NAME,
+    FAIL_FAST
 
 }

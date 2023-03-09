@@ -61,6 +61,11 @@ public class ProcessExecutor {
     private List<Pattern> excludePatternList;
     private final String replaceChars;
 
+    private final boolean useStreamCopy;
+    private final int blockSize;
+    private final String messageDigestAlgo;
+    private final boolean failFast;
+
     public ProcessExecutor(String inputFile, String sourceFolderPath, String targetFolderPath, String folderSequence, Properties properties) {
         logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
             inputFile, sourceFolderPath, targetFolderPath, folderSequence);
@@ -91,6 +96,12 @@ public class ProcessExecutor {
         }
 
         replaceChars = this.properties.getProperty(PropKeysEnum.REPLACE_CHARS.name(), null);
+
+        useStreamCopy = PropFileHandler.getBoolean(PropKeysEnum.USE_STREAM_COPY.name(), this.properties, true);
+        blockSize = PropFileHandler.getInteger(PropKeysEnum.COPY_BLOCK_SIZE.name(), this.properties, CheckSumUtil.DEFAULT_BLOCK_SIZE);
+        messageDigestAlgo = this.properties.getProperty(PropKeysEnum.CHECKSUM_SCHEME.name(), CheckSumUtil.DEFAULT_SCHEME);
+
+        failFast = PropFileHandler.getBoolean(PropKeysEnum.FAIL_FAST.name(), this.properties, true);
     }
 
     public void readTheExcelInputFile() throws IOException, InterruptedException {
@@ -175,19 +186,32 @@ public class ProcessExecutor {
     private File createFolderStructureIfNeeded(String[] pathSequences, Map<String, String> rowEntryKeyValuePair, String outputFolderPath) throws IOException {
         File folderPathToBeCreated = new File(outputFolderPath);
         for (final String pathSequence : pathSequences) {
-            folderPathToBeCreated = new File(folderPathToBeCreated, rowEntryKeyValuePair.get(pathSequence.trim()));
+            String newChildName = rowEntryKeyValuePair.get(pathSequence.trim());
+            if (replaceChars != null) {
+                newChildName = newChildName.replaceAll(replaceChars, "");
+            }
+            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName);
         }
-        if (!folderPathToBeCreated.exists() && !folderPathToBeCreated.mkdirs()) {
+        try {
+            if (!folderPathToBeCreated.exists() && !folderPathToBeCreated.mkdirs()) {
+                logger.error("Failed to create the folder path: {}", folderPathToBeCreated);
+            }
+        } catch (Exception e) {
+            logger.error(e);
+        }
+
+        if (!folderPathToBeCreated.exists() && (this.failFast)) {
             throw new IOException("Failed to create the folder path: " + folderPathToBeCreated);
         }
+
         return folderPathToBeCreated;
     }
 
     /**
-     * @param srcFolder folder from where files to be copied
+     * @param srcFolder    folder from where files to be copied
      * @param targetFolder target folder where files need to be copied
-     * @param taskList taskList for executing completable future
-     * @throws IOException  throw exception if any
+     * @param taskList     taskList for executing completable future
+     * @throws IOException throw exception if any
      */
     private void copyFilesFromSourceToTarget(File srcFolder, File targetFolder, List<Runnable> taskList) throws IOException {
         Files.walkFileTree(srcFolder.toPath(), new SimpleFileVisitor<Path>() {
@@ -218,7 +242,7 @@ public class ProcessExecutor {
     }
 
     private void addNewCopyTask(final Path file, final File targetFile, final List<Runnable> taskList, final File srcFolder) {
-        taskList.add(new CopyFileTask(file.toFile(), targetFile));
+        taskList.add(new CopyFileTask(file.toFile(), targetFile, blockSize, useStreamCopy, failFast));
         if (taskList.size() >= 1000) {
             executeTaskList(taskList);
             logger.info("Completed copy operation on batch on files inside {}", srcFolder.getPath());
@@ -250,9 +274,6 @@ public class ProcessExecutor {
         if (srcFile.length() != targetFile.length()) {
             return false;
         }
-
-        final String messageDigestAlgo = this.properties.getProperty(PropKeysEnum.CHECKSUM_SCHEME.name(), CheckSumUtil.DEFAULT_SCHEME);
-        final int blockSize = PropFileHandler.getInteger(PropKeysEnum.COPY_BLOCK_SIZE.name(), this.properties, CheckSumUtil.DEFAULT_BLOCK_SIZE);
 
         try {
             if (!CheckSumUtil.getInstance().getFileChecksum(srcFile, messageDigestAlgo, blockSize)

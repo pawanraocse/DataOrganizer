@@ -6,13 +6,13 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 
 public class CopyFileTask implements Runnable {
 
@@ -22,16 +22,18 @@ public class CopyFileTask implements Runnable {
     private static final int DEFAULT_BLOCK_SIZE = 4096;
     private final int copyBlockSize;
     private final boolean useStreamCopy;
+    private final boolean failFast;
 
     public CopyFileTask(File fromPath, File toPath) {
-        this(fromPath, toPath, DEFAULT_BLOCK_SIZE, true);
+        this(fromPath, toPath, DEFAULT_BLOCK_SIZE, true, true);
     }
 
-    public CopyFileTask(File fromPath, File toPath, int copyBlockSize, boolean useStreamCopy) {
+    public CopyFileTask(File fromPath, File toPath, int copyBlockSize, boolean useStreamCopy, boolean failFast) {
         this.fromPath = fromPath;
         this.toPath = toPath;
         this.copyBlockSize = copyBlockSize;
         this.useStreamCopy = useStreamCopy;
+        this.failFast = failFast;
     }
 
     @Override
@@ -44,9 +46,25 @@ public class CopyFileTask implements Runnable {
                 copyUsingJava();
             }
             logger.info("Completed copy file {} to {}", fromPath, toPath);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            logger.error(e);
             logger.error(new ParameterizedMessage("Failed to copy file {0} to the destination {1}", fromPath, toPath));
-            throw new RuntimeException(e);
+
+            String contentToAppend = fromPath.getPath() + "->" + toPath.getPath() + "\n";
+            try {
+                if (!DataOrganizerApplication.getFailedFileLogPath().getParentFile().exists()) {
+                    DataOrganizerApplication.getFailedFileLogPath().getParentFile().mkdirs();
+                }
+                Files.write(
+                    DataOrganizerApplication.getFailedFileLogPath().toPath(),
+                    contentToAppend.getBytes(),
+                    DataOrganizerApplication.getFailedFileLogPath().exists() ? StandardOpenOption.APPEND : StandardOpenOption.CREATE);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            if (failFast) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -56,9 +74,9 @@ public class CopyFileTask implements Runnable {
 
     private void copyUsingChunks() throws IOException {
         try (
-            InputStream inputStream = new FileInputStream(fromPath);
+            InputStream inputStream = Files.newInputStream(fromPath.toPath());
             BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
-            OutputStream outputStream = new FileOutputStream(toPath);
+            OutputStream outputStream = Files.newOutputStream(toPath.toPath());
         ) {
             byte[] buffer = new byte[copyBlockSize];
             int read;
