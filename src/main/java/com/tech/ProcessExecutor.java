@@ -114,6 +114,10 @@ public class ProcessExecutor {
         final int start_index = PropFileHandler.getInteger(PropKeysEnum.START_INDEX.name() + "_" + inputFile, this.properties, 0);
         int rowIndex = 0;
 
+        if (start_index == 0) {
+            addStartEntryInLogFiles();
+        }
+
         try (FileInputStream file = new FileInputStream(inputFile)) {
             workbook = new XSSFWorkbook(file);
             Sheet sheet = workbook.getSheetAt(0);
@@ -122,6 +126,13 @@ public class ProcessExecutor {
 
         logger.info("Completed all tasks, calling final shutdown.");
         executorService.shutdown();
+    }
+
+    private void addStartEntryInLogFiles() {
+        String startEntry = "\n\n\n\n";
+        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), startEntry, failFast);
+        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), startEntry, failFast);
+        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), startEntry, failFast);
     }
 
     private void readSheetAndStartFileCopy(final Map<Integer, String> colIndexToHeaderMap, final int start_index, int rowIndex, final Sheet sheet) throws IOException {

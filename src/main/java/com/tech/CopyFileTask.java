@@ -3,7 +3,6 @@ package com.tech;
 import com.tech.utils.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -49,7 +48,7 @@ public class CopyFileTask implements Runnable {
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend, failFast);
         } catch (Exception e) {
             logger.error(e);
-            logger.error(new ParameterizedMessage("Failed to copy file {0} to the destination {1}", fromPath, toPath));
+            logger.error("Failed to copy file {} to the destination {}", fromPath, toPath);
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);
             if (failFast) {
                 throw new RuntimeException(e);
