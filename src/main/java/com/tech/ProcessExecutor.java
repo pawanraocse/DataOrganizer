@@ -67,13 +67,10 @@ public class ProcessExecutor {
     public ProcessExecutor(Properties properties) {
         this.properties = properties;
 
-        this.inputFile = properties.getProperty(PropKeysEnum.INPUT_FILE.name());
-        this.sourceFolderPath = properties.getProperty(PropKeysEnum.SRC_FOLDER.name());
-        this.targetFolderPath =  properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
-        String folderSequence = properties.getProperty(PropKeysEnum.FOLDER_SEQUENCE.name());
-
-        logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
-            inputFile, sourceFolderPath, targetFolderPath, folderSequence);
+        this.inputFile = this.properties.getProperty(PropKeysEnum.INPUT_FILE.name());
+        this.sourceFolderPath = this.properties.getProperty(PropKeysEnum.SRC_FOLDER.name());
+        this.targetFolderPath =  this.properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
+        String folderSequence = this.properties.getProperty(PropKeysEnum.FOLDER_SEQUENCE.name());
 
         initExcludeFileTypes(this.properties.getProperty(PropKeysEnum.EXCLUDE_FILE_TYPES.name()));
         initExcludePatterns(this.properties.getProperty(PropKeysEnum.EXCLUDE_PATTERNS.name()));
@@ -90,6 +87,9 @@ public class ProcessExecutor {
 
         int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), this.properties, 3);
         executorService = Executors.newFixedThreadPool(nThreads);
+
+        logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
+            inputFile, sourceFolderPath, targetFolderPath, folderSequence);
     }
 
     private void initExcludePatterns(final String excludePatterns) {
@@ -235,7 +235,7 @@ public class ProcessExecutor {
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                 if (isMatchingExcludePattern(dir.toFile().getPath())) {
                     logger.info("skipping sub-path as matched to exclude pattern {}", dir.toFile().getPath());
-                    FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), dir.toFile().getPath() + "\n");
+                    FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), dir.toFile().getPath() + "\n", failFast);
                     return FileVisitResult.SKIP_SUBTREE;
                 }
                 return FileVisitResult.CONTINUE;
@@ -246,7 +246,7 @@ public class ProcessExecutor {
                 if (!Files.isDirectory(file)) {
                     if (isMatchingExcludePattern(file.toFile().getPath()) || isMatchingExcludeFileTypes(file.toFile().getPath())) {
                         logger.info("skipping file {} as per exclude pattern and file types", file.toFile().getPath());
-                        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), file.toFile().getPath() + "\n");
+                        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), file.toFile().getPath() + "\n", failFast);
                         return FileVisitResult.CONTINUE;
                     }
                     final File targetFile = getTargetFile(file, targetFolder);

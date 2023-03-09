@@ -46,11 +46,11 @@ public class CopyFileTask implements Runnable {
                 copyUsingJava();
             }
             logger.info("Completed file copy from {} to {}", fromPath, toPath);
-            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend);
+            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend, failFast);
         } catch (Exception e) {
             logger.error(e);
             logger.error(new ParameterizedMessage("Failed to copy file {0} to the destination {1}", fromPath, toPath));
-            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend);
+            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);
             if (failFast) {
                 throw new RuntimeException(e);
             }
