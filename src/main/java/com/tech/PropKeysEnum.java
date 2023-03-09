@@ -17,6 +17,7 @@ public enum PropKeysEnum {
     CHECKSUM_SCHEME,
     REPLACE_CHARS,
     GUID_NAME,
-    FAIL_FAST
+    FAIL_FAST,
+    SHALLOW_FILE_COMPARISON
 
 }

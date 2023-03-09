@@ -41,14 +41,11 @@ import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 public class ProcessExecutor {
-
     static Logger logger = LogManager.getLogger(ProcessExecutor.class);
-
     private final String targetFolderPath;
     private final String sourceFolderPath;
     private final String inputFile;
     private final String[] pathSequences;
-
     private final ExecutorService executorService;
 
     private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number";
@@ -60,91 +57,106 @@ public class ProcessExecutor {
     private Set<String> excludeFileTypesSet;
     private List<Pattern> excludePatternList;
     private final String replaceChars;
-
     private final boolean useStreamCopy;
     private final int blockSize;
     private final String messageDigestAlgo;
     private final boolean failFast;
 
-    public ProcessExecutor(String inputFile, String sourceFolderPath, String targetFolderPath, String folderSequence, Properties properties) {
+    private final boolean shallowFileComparison;
+
+    public ProcessExecutor(Properties properties) {
+        this.properties = properties;
+
+        this.inputFile = properties.getProperty(PropKeysEnum.INPUT_FILE.name());
+        this.sourceFolderPath = properties.getProperty(PropKeysEnum.SRC_FOLDER.name());
+        this.targetFolderPath =  properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
+        String folderSequence = properties.getProperty(PropKeysEnum.FOLDER_SEQUENCE.name());
+
         logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
             inputFile, sourceFolderPath, targetFolderPath, folderSequence);
 
-        this.inputFile = inputFile;
-        this.sourceFolderPath = sourceFolderPath;
-        this.targetFolderPath = targetFolderPath;
+        initExcludeFileTypes(this.properties.getProperty(PropKeysEnum.EXCLUDE_FILE_TYPES.name()));
+        initExcludePatterns(this.properties.getProperty(PropKeysEnum.EXCLUDE_PATTERNS.name()));
+
+        replaceChars = this.properties.getProperty(PropKeysEnum.REPLACE_CHARS.name(), null);
+        useStreamCopy = PropFileHandler.getBoolean(PropKeysEnum.USE_STREAM_COPY.name(), this.properties, true);
+        blockSize = PropFileHandler.getInteger(PropKeysEnum.COPY_BLOCK_SIZE.name(), this.properties, CheckSumUtil.DEFAULT_BLOCK_SIZE);
+        messageDigestAlgo = this.properties.getProperty(PropKeysEnum.CHECKSUM_SCHEME.name(), CheckSumUtil.DEFAULT_SCHEME);
+        failFast = PropFileHandler.getBoolean(PropKeysEnum.FAIL_FAST.name(), this.properties, true);
+        shallowFileComparison = PropFileHandler.getBoolean(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), this.properties, false);
+
         folderSequence = folderSequence == null || folderSequence.trim().isEmpty() ? DEFAULT_FOLDER_SEQUENCE_PATH : folderSequence;
         pathSequences = folderSequence.split("->");
-        this.properties = properties;
 
-        int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), properties, 3);
+        int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), this.properties, 3);
         executorService = Executors.newFixedThreadPool(nThreads);
+    }
 
-        final String excludeFileTypes = this.properties.getProperty(PropKeysEnum.EXCLUDE_FILE_TYPES.name());
-        final String excludePatterns = this.properties.getProperty(PropKeysEnum.EXCLUDE_PATTERNS.name());
-
-        if (StringUtil.isNotBlank(excludeFileTypes)) {
-            excludeFileTypesSet = new HashSet<>();
-            final String[] excludeFileTypeArray = excludeFileTypes.split("->");
-            Arrays.stream(excludeFileTypeArray).forEach(type -> excludeFileTypesSet.add(type.trim().toLowerCase()));
-        }
-
+    private void initExcludePatterns(final String excludePatterns) {
         if (StringUtil.isNotBlank(excludePatterns)) {
             excludePatternList = new ArrayList<>();
             final String[] excludePatternArray = excludePatterns.split("->");
             Arrays.stream(excludePatternArray).forEach(type -> excludePatternList.add(Pattern.compile(type.trim(), Pattern.CASE_INSENSITIVE)));
         }
+    }
 
-        replaceChars = this.properties.getProperty(PropKeysEnum.REPLACE_CHARS.name(), null);
-
-        useStreamCopy = PropFileHandler.getBoolean(PropKeysEnum.USE_STREAM_COPY.name(), this.properties, true);
-        blockSize = PropFileHandler.getInteger(PropKeysEnum.COPY_BLOCK_SIZE.name(), this.properties, CheckSumUtil.DEFAULT_BLOCK_SIZE);
-        messageDigestAlgo = this.properties.getProperty(PropKeysEnum.CHECKSUM_SCHEME.name(), CheckSumUtil.DEFAULT_SCHEME);
-
-        failFast = PropFileHandler.getBoolean(PropKeysEnum.FAIL_FAST.name(), this.properties, true);
+    private void initExcludeFileTypes(final String excludeFileTypes) {
+        if (StringUtil.isNotBlank(excludeFileTypes)) {
+            excludeFileTypesSet = new HashSet<>();
+            final String[] excludeFileTypeArray = excludeFileTypes.split("->");
+            Arrays.stream(excludeFileTypeArray).forEach(type -> excludeFileTypesSet.add(type.trim().toLowerCase()));
+        }
     }
 
     public void readTheExcelInputFile() throws IOException, InterruptedException {
         Workbook workbook;
-        Map<String, String> colKeyValueMapInCurrentRow;
         Map<Integer, String> colIndexToHeaderMap = new HashMap<>();
-        int colIndex;
         final int start_index = PropFileHandler.getInteger(PropKeysEnum.START_INDEX.name() + "_" + inputFile, this.properties, 0);
         int rowIndex = 0;
 
         try (FileInputStream file = new FileInputStream(inputFile)) {
             workbook = new XSSFWorkbook(file);
             Sheet sheet = workbook.getSheetAt(0);
-
-            for (Row row : sheet) {
-                rowIndex++;
-                if (rowIndex != 1 && rowIndex <= start_index) {
-                    continue;
-                }
-                colIndex = 0;
-                colKeyValueMapInCurrentRow = new HashMap<>();
-                for (Cell cell : row) {
-                    CellType cellType = cell.getCellType();
-                    colIndex++;
-
-                    if (rowIndex == 1) {
-                        colIndexToHeaderMap.put(colIndex, cell.getStringCellValue());
-                        continue;
-                    }
-                    handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, colIndex, cell, cellType);
-                }
-
-                if (rowIndex > 1) {
-                    processCopyOperationOnGivenRow(colKeyValueMapInCurrentRow, rowIndex);
-                    PropFileHandler.setProperty(PropKeysEnum.START_INDEX.name() + "_" + inputFile, rowIndex + "", this.properties);
-                    PropFileHandler.flush(this.properties, DataOrganizerApplication.getPropFilePath());
-                }
-            }
+            readSheetAndStartFileCopy(colIndexToHeaderMap, start_index, rowIndex, sheet);
         }
 
         logger.info("Completed all tasks, calling final shutdown.");
         executorService.shutdown();
+    }
 
+    private void readSheetAndStartFileCopy(final Map<Integer, String> colIndexToHeaderMap, final int start_index, int rowIndex, final Sheet sheet) throws IOException {
+        int colIndex;
+        Map<String, String> colKeyValueMapInCurrentRow;
+        for (Row row : sheet) {
+            rowIndex++;
+            if (rowIndex != 1 && rowIndex <= start_index) {
+                continue;
+            }
+            colIndex = 0;
+            colKeyValueMapInCurrentRow = new HashMap<>();
+            iterateOverAllColsInRowToStoreInKeyValuePair(colIndexToHeaderMap, rowIndex, colIndex, colKeyValueMapInCurrentRow, row);
+            if (rowIndex > 1) {
+                processCopyOperationOnGivenRow(colKeyValueMapInCurrentRow, rowIndex);
+                updatePropertiesFileWithStartIndex(rowIndex);
+            }
+        }
+    }
+
+    private void updatePropertiesFileWithStartIndex(final int rowIndex) throws IOException {
+        PropFileHandler.setProperty(PropKeysEnum.START_INDEX.name() + "_" + inputFile, rowIndex + "", this.properties);
+        PropFileHandler.flush(this.properties, DataOrganizerApplication.getPropFilePath());
+    }
+
+    private static void iterateOverAllColsInRowToStoreInKeyValuePair(final Map<Integer, String> colIndexToHeaderMap, final int rowIndex, int colIndex, final Map<String, String> colKeyValueMapInCurrentRow, final Row row) {
+        for (Cell cell : row) {
+            CellType cellType = cell.getCellType();
+            colIndex++;
+            if (rowIndex == 1) {
+                colIndexToHeaderMap.put(colIndex, cell.getStringCellValue());
+                continue;
+            }
+            handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, colIndex, cell, cellType);
+        }
     }
 
     private static void handleColumnValueAndStoreInKeyValueMap(final Map<String, String> rowKeyValueMap, final Map<Integer, String> colIndexToHeaderMap,
@@ -180,18 +192,11 @@ public class ProcessExecutor {
         logger.info("Awaiting copy operation for row {} to be completed.", rowIndex);
         executeTaskList(taskList);
         logger.info("Completed copy operation for row {}.", rowIndex);
-
     }
 
     private File createFolderStructureIfNeeded(String[] pathSequences, Map<String, String> rowEntryKeyValuePair, String outputFolderPath) throws IOException {
         File folderPathToBeCreated = new File(outputFolderPath);
-        for (final String pathSequence : pathSequences) {
-            String newChildName = rowEntryKeyValuePair.get(pathSequence.trim());
-            if (replaceChars != null) {
-                newChildName = newChildName.replaceAll(replaceChars, "");
-            }
-            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName);
-        }
+        folderPathToBeCreated = iterateOverPathSequenceToAppendPath(pathSequences, rowEntryKeyValuePair, folderPathToBeCreated);
         try {
             if (!folderPathToBeCreated.exists() && !folderPathToBeCreated.mkdirs()) {
                 logger.error("Failed to create the folder path: {}", folderPathToBeCreated);
@@ -207,6 +212,17 @@ public class ProcessExecutor {
         return folderPathToBeCreated;
     }
 
+    private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair, File folderPathToBeCreated) {
+        for (final String pathSequence : pathSequences) {
+            String newChildName = rowEntryKeyValuePair.get(pathSequence.trim());
+            if (replaceChars != null) {
+                newChildName = newChildName.replaceAll(replaceChars, "");
+            }
+            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName);
+        }
+        return folderPathToBeCreated;
+    }
+
     /**
      * @param srcFolder    folder from where files to be copied
      * @param targetFolder target folder where files need to be copied
@@ -218,6 +234,8 @@ public class ProcessExecutor {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                 if (isMatchingExcludePattern(dir.toFile().getPath())) {
+                    logger.info("skipping sub-path as matched to exclude pattern {}", dir.toFile().getPath());
+                    FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), dir.toFile().getPath() + "\n");
                     return FileVisitResult.SKIP_SUBTREE;
                 }
                 return FileVisitResult.CONTINUE;
@@ -227,11 +245,14 @@ public class ProcessExecutor {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 if (!Files.isDirectory(file)) {
                     if (isMatchingExcludePattern(file.toFile().getPath()) || isMatchingExcludeFileTypes(file.toFile().getPath())) {
+                        logger.info("skipping file {} as per exclude pattern and file types", file.toFile().getPath());
+                        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), file.toFile().getPath() + "\n");
                         return FileVisitResult.CONTINUE;
                     }
                     final File targetFile = getTargetFile(file, targetFolder);
 
                     if (checkIfFileAlreadyCopied(file, targetFile)) {
+                        logger.info("File {} already present at target {}", file.toFile().getPath(), targetFile.getPath());
                         return FileVisitResult.CONTINUE;
                     }
                     addNewCopyTask(file, targetFile, taskList, srcFolder);
@@ -274,9 +295,8 @@ public class ProcessExecutor {
         if (srcFile.length() != targetFile.length()) {
             return false;
         }
-
         try {
-            if (!CheckSumUtil.getInstance().getFileChecksum(srcFile, messageDigestAlgo, blockSize)
+            if (!this.shallowFileComparison && !CheckSumUtil.getInstance().getFileChecksum(srcFile, messageDigestAlgo, blockSize)
                 .equals(CheckSumUtil.getInstance().getFileChecksum(targetFile, messageDigestAlgo, blockSize))) {
                 return false;
             }
@@ -312,9 +332,7 @@ public class ProcessExecutor {
         YEAR("Year"),
         MONTH("Month"),
         DAY("Day");
-
         final String value;
-
         DateKeys(String val) {
             this.value = val;
         }

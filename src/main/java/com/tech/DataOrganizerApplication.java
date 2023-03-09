@@ -7,18 +7,16 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
-import static com.tech.PropKeysEnum.FOLDER_SEQUENCE;
 import static com.tech.PropKeysEnum.INPUT_FILE;
-import static com.tech.PropKeysEnum.SRC_FOLDER;
-import static com.tech.PropKeysEnum.TARGET_FOLDER;
 
 
 /*todo
-* Add integrity check to compare the source and target folder.
-* */
+ * Add integrity check to compare the source and target folder.
+ * */
 
 public class DataOrganizerApplication {
 
+    public static final String HOME_DRIVE = System.getProperty("user.home");
     static Logger logger = LogManager.getLogger(DataOrganizerApplication.class);
 
     private static final String PROP_FILE_NAME = "organizer.properties";
@@ -28,8 +26,8 @@ public class DataOrganizerApplication {
 
     private static final String LOGS = "logs";
     private static final String FILES_FAILED = "files-failed.txt";
-
     private static final String FILES_COPIED = "files-copied.txt";
+    private static final String FILES_SKIPPED = "files-skipped.txt";
     private final Properties properties;
 
     private DataOrganizerApplication(Properties properties) {
@@ -37,10 +35,7 @@ public class DataOrganizerApplication {
     }
 
     private void startDataOrganizeProcess() {
-        ProcessExecutor processExecutor = new ProcessExecutor(properties.getProperty(INPUT_FILE.name()),
-            properties.getProperty(SRC_FOLDER.name()),
-            properties.getProperty(TARGET_FOLDER.name()),
-            properties.getProperty(FOLDER_SEQUENCE.name()), properties);
+        ProcessExecutor processExecutor = new ProcessExecutor(properties);
         try {
             processExecutor.readTheExcelInputFile();
         } catch (IOException | InterruptedException e) {
@@ -105,6 +100,9 @@ public class DataOrganizerApplication {
                     case FAIL_FAST:
                         properties.put(PropKeysEnum.FAIL_FAST.name(), args[i++]);
                         break;
+                    case SHALLOW_FILE_COMPARISON:
+                        properties.put(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), args[i++]);
+                        break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + arg);
                 }
@@ -119,18 +117,19 @@ public class DataOrganizerApplication {
     }
 
     public static File getPropFilePath() {
-        final String homeDrive = System.getProperty("user.home");
-        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
+        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
     }
 
     public static File getFailedFileLogPath() {
-        final String homeDrive = System.getProperty("user.home");
-        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_FAILED);
+        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_FAILED);
     }
 
     public static File getCopiedFileLogPath() {
-        final String homeDrive = System.getProperty("user.home");
-        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_COPIED);
+        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_COPIED);
+    }
+
+    public static File getSkippedLogFile() {
+        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_SKIPPED);
     }
 
     private static void showHelp() {
@@ -148,6 +147,7 @@ public class DataOrganizerApplication {
         printConsoleLog("CHECKSUM_SCHEME    -- Checksum algorithm for validating file before replace.\n\t\t\t\t\t\tDefault is SHA-256, valid algorithms are SHA-1,SHA-256,MD5,CRC32");
         printConsoleLog("REPLACE_CHARS      -- Regex patterns to replace special characters from file names e.g [!@#$%^&]");
         printConsoleLog("FAIL_FAST          -- Fail fast as script hits any error else it will just log the error and keep trying the next paths.\n\t\t\t\t\tDefault is true");
+        printConsoleLog("SHALLOW_FILE_COMPARISON-- Compare file using length only, else will use the checksum too.\n\t\t\t\t\tDefault is false");
 
         printConsoleLog("\n\nCreate file at path " + getPropFilePath() + " and add the required properties key value pairs.\n\n");
 
