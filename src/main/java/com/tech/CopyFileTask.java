@@ -1,5 +1,6 @@
 package com.tech;
 
+import com.tech.utils.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -10,9 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 
 public class CopyFileTask implements Runnable {
 
@@ -39,29 +38,19 @@ public class CopyFileTask implements Runnable {
     @Override
     public void run() {
         logger.info("Starting copy file {} to {}", fromPath, toPath);
+        String contentToAppend = fromPath.getPath() + "->" + toPath.getPath() + "\n";
         try {
             if (useStreamCopy) {
                 copyUsingChunks();
             } else {
                 copyUsingJava();
             }
-            logger.info("Completed copy file {} to {}", fromPath, toPath);
+            logger.info("Completed file copy from {} to {}", fromPath, toPath);
+            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend);
         } catch (Exception e) {
             logger.error(e);
             logger.error(new ParameterizedMessage("Failed to copy file {0} to the destination {1}", fromPath, toPath));
-
-            String contentToAppend = fromPath.getPath() + "->" + toPath.getPath() + "\n";
-            try {
-                if (!DataOrganizerApplication.getFailedFileLogPath().getParentFile().exists()) {
-                    DataOrganizerApplication.getFailedFileLogPath().getParentFile().mkdirs();
-                }
-                Files.write(
-                    DataOrganizerApplication.getFailedFileLogPath().toPath(),
-                    contentToAppend.getBytes(),
-                    DataOrganizerApplication.getFailedFileLogPath().exists() ? StandardOpenOption.APPEND : StandardOpenOption.CREATE);
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
+            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend);
             if (failFast) {
                 throw new RuntimeException(e);
             }

@@ -15,10 +15,6 @@ import static com.tech.PropKeysEnum.TARGET_FOLDER;
 
 /*todo
 * Add integrity check to compare the source and target folder.
-* Don't stop script on error -- it must keep on running
-* Keep record of files -
-*  Which got successfully migrated
-*  Which got failed to migrate
 * */
 
 public class DataOrganizerApplication {
@@ -33,6 +29,7 @@ public class DataOrganizerApplication {
     private static final String LOGS = "logs";
     private static final String FILES_FAILED = "files-failed.txt";
 
+    private static final String FILES_COPIED = "files-copied.txt";
     private final Properties properties;
 
     private DataOrganizerApplication(Properties properties) {
@@ -131,10 +128,15 @@ public class DataOrganizerApplication {
         return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_FAILED);
     }
 
+    public static File getCopiedFileLogPath() {
+        final String homeDrive = System.getProperty("user.home");
+        return new File(homeDrive, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_COPIED);
+    }
+
     private static void showHelp() {
         printConsoleLog("Run the executable using the following command line arguments: \n");
         printConsoleLog("INPUT_FILE*        -- Excel file path containing the details of source files and target folder");
-        printConsoleLog("PROP_FILE          -- properties file path containing all the needed properties key values.\n\t\t\t\t\t\tDefault path for properties file is " + getPropFilePath());
+        printConsoleLog("PROP_FILE          -- Properties file path containing all the needed properties key values.\n\t\t\t\t\t\tDefault path for properties file is " + getPropFilePath());
         printConsoleLog("SRC_FOLDER*        -- Source folder path which needs to be copied into a organised structure");
         printConsoleLog("TARGET_FOLDER*     -- Target folder path where needs to be copy the files into organised structure");
         printConsoleLog("FOLDER_SEQUENCE    -- Customise the folder path to be created target folder based on column values in excel.\n\t\t\t\t\t\tDefault path is Decade->Series Title->Year->Episode Number");
