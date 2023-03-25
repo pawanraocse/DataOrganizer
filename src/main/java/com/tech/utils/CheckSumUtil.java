@@ -27,7 +27,7 @@ public class CheckSumUtil {
     }
 
     public static MessageDigest getDefaultMessageDigest() throws NoSuchAlgorithmException {
-        return MessageDigest.getInstance("SHA-256");
+        return MessageDigest.getInstance(DEFAULT_SCHEME);
     }
 
     public String getFileChecksum(File file) throws IOException, NoSuchAlgorithmException {

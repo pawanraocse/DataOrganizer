@@ -108,7 +108,7 @@ public class ProcessExecutor {
         }
     }
 
-    public void readTheExcelInputFile() throws IOException, InterruptedException {
+    public void readTheExcelInputFile() throws IOException {
         Workbook workbook;
         Map<Integer, String> colIndexToHeaderMap = new HashMap<>();
         final int start_index = PropFileHandler.getInteger(PropKeysEnum.START_INDEX.name() + "_" + inputFile, this.properties, 0);

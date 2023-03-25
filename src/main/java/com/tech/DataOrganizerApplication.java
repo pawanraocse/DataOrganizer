@@ -10,10 +10,6 @@ import java.util.Properties;
 import static com.tech.PropKeysEnum.INPUT_FILE;
 
 
-/*todo
- * Add integrity check to compare the source and target folder.
- * */
-
 public class DataOrganizerApplication {
 
     public static final String HOME_DRIVE = System.getProperty("user.home");
@@ -38,7 +34,7 @@ public class DataOrganizerApplication {
         ProcessExecutor processExecutor = new ProcessExecutor(properties);
         try {
             processExecutor.readTheExcelInputFile();
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             logger.error(e);
             System.exit(1);
         }
