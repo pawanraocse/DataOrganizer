@@ -9,7 +9,6 @@ import java.util.Properties;
 
 import static com.tech.PropKeysEnum.INPUT_FILE;
 
-
 public class DataOrganizerApplication {
 
     public static final String HOME_DRIVE = System.getProperty("user.home");
@@ -21,6 +20,8 @@ public class DataOrganizerApplication {
     private static final String RESOURCES = "resources";
 
     private static final String LOGS = "logs";
+    private static final String PROPS = "props";
+    private static final String STATS_FILE = "copy-stats.properties";
     private static final String FILES_FAILED = "files-failed.txt";
     private static final String FILES_COPIED = "files-copied.txt";
     private static final String FILES_SKIPPED = "files-skipped.txt";
@@ -104,7 +105,6 @@ public class DataOrganizerApplication {
                 }
             }
         }
-
         if (properties.isEmpty()) {
             showHelp();
         } else {
@@ -116,16 +116,24 @@ public class DataOrganizerApplication {
         return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + RESOURCES + File.separator + PROP_FILE_NAME);
     }
 
+    public static File getPropsFilePath() {
+        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + PROPS);
+    }
+
     public static File getFailedFileLogPath() {
-        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_FAILED);
+        return new File(getPropsFilePath(), FILES_FAILED);
+    }
+
+    public static File getStatsFilePath() {
+        return new File(getPropsFilePath(), STATS_FILE);
     }
 
     public static File getCopiedFileLogPath() {
-        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_COPIED);
+        return new File(getPropsFilePath(), FILES_COPIED);
     }
 
     public static File getSkippedLogFile() {
-        return new File(HOME_DRIVE, TEMP + File.separator + DATA_ORG + File.separator + LOGS + File.separator + FILES_SKIPPED);
+        return new File(getPropsFilePath(), FILES_SKIPPED);
     }
 
     private static void showHelp() {

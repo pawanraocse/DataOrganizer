@@ -1,6 +1,7 @@
 package com.tech;
 
 import com.tech.utils.FileUtil;
+import com.tech.utils.StatsUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -46,10 +47,12 @@ public class CopyFileTask implements Runnable {
             }
             logger.info("Completed file copy from {} to {}", fromPath, toPath);
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend, failFast);
+            StatsUtil.getInstance().updateStats(fromPath.length(), true, false, false);
         } catch (Exception e) {
             logger.error(e);
             logger.error("Failed to copy file {} to the destination {}", fromPath, toPath);
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);
+            StatsUtil.getInstance().updateStats(fromPath.length(), false, false, true);
             if (failFast) {
                 throw new RuntimeException(e);
             }

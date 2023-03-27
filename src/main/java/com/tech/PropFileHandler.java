@@ -12,14 +12,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Properties;
 
-class PropFileHandler {
+public class PropFileHandler {
 
     static Logger logger = LogManager.getLogger(PropFileHandler.class);
 
     private PropFileHandler() {
     }
 
-    public static Properties readPropertiesFile(String filePath) throws IOException {
+    public static synchronized Properties readPropertiesFile(String filePath) throws IOException {
         Properties prop = new Properties();
         if (new File(filePath).exists()) {
             logger.info("Starting reading prop file {}", filePath);
@@ -50,6 +50,18 @@ class PropFileHandler {
                                  Properties properties, int defaultValue) {
         String value = extractPropertyValue(propertyName, properties);
         return value == null ? defaultValue : Integer.parseInt(value);
+    }
+
+    public static String getString(String propertyName,
+                                 Properties properties, String defaultValue) {
+        String value = extractPropertyValue(propertyName, properties);
+        return value == null ? defaultValue : value;
+    }
+
+    public static long getLong(String propertyName,
+                                 Properties properties, long defaultValue) {
+        String value = extractPropertyValue(propertyName, properties);
+        return value == null ? defaultValue : Long.parseLong(value);
     }
 
     public static boolean getBoolean(String propertyName,

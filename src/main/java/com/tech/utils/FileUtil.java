@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 public class FileUtil {
@@ -23,9 +24,8 @@ public class FileUtil {
     public static boolean appendEntryToLogFile(File logFilePath, String contentToAppend, boolean throwException) {
         try {
             if (!logFilePath.getParentFile().exists() && (!logFilePath.getParentFile().mkdirs())) {
-                  logger.error("Failed to create directory {}", logFilePath.getParentFile().getPath());
+                logger.error("Failed to create directory {}", logFilePath.getParentFile().getPath());
             }
-
             Files.write(
                 logFilePath.toPath(),
                 contentToAppend.getBytes(),
@@ -37,5 +37,14 @@ public class FileUtil {
             }
         }
         return true;
+    }
+
+    public static void rename(final File file, final String newName) {
+        Path filePath = file.toPath();
+        try {
+            Files.move(filePath, filePath.resolveSibling(newName));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

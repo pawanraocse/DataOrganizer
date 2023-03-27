@@ -18,7 +18,6 @@ public class CheckSumUtil {
     public static final String DEFAULT_SCHEME = "SHA-256";
 
     private static class InstanceHolder {
-
         private static final CheckSumUtil INSTANCE = new CheckSumUtil();
     }
 

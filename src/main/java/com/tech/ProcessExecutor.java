@@ -2,6 +2,7 @@ package com.tech;
 
 import com.tech.utils.CheckSumUtil;
 import com.tech.utils.FileUtil;
+import com.tech.utils.StatsUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.Cell;
@@ -53,7 +54,6 @@ public class ProcessExecutor {
     private static final String DEFAULT_GUID_NAME = "GUID";
     private static final DecimalFormat decimalFormat = new DecimalFormat("0.#");
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
-
     private final Properties properties;
     private Set<String> excludeFileTypesSet;
     private List<Pattern> excludePatternList;
@@ -62,7 +62,6 @@ public class ProcessExecutor {
     private final int blockSize;
     private final String messageDigestAlgo;
     private final boolean failFast;
-
     private final boolean shallowFileComparison;
 
     public ProcessExecutor(Properties properties) {
@@ -116,6 +115,7 @@ public class ProcessExecutor {
         int rowIndex = 0;
 
         if (start_index == 0) {
+            takeBackUpOfExistingLogIfPresent();
             addStartEntryInLogFiles();
         }
 
@@ -129,11 +129,19 @@ public class ProcessExecutor {
         executorService.shutdown();
     }
 
+    private void takeBackUpOfExistingLogIfPresent() {
+        final File propsFilePath = DataOrganizerApplication.getPropsFilePath();
+        if (propsFilePath.exists()) {
+            FileUtil.rename(propsFilePath, propsFilePath.getName() + "-backup-" + new SimpleDateFormat("yyyy-MM-dd HH-mm-ss-SSS").format(new Date()));
+        }
+    }
+
     private void addStartEntryInLogFiles() {
-        String startEntry = "\n\n\n\n";
+        String startEntry = "";
         FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), startEntry, failFast);
         FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), startEntry, failFast);
         FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), startEntry, failFast);
+        StatsUtil.getInstance();
     }
 
     private void readSheetAndStartFileCopy(final Map<Integer, String> colIndexToHeaderMap, final int start_index, int rowIndex, final Sheet sheet) throws IOException {
@@ -203,6 +211,7 @@ public class ProcessExecutor {
 
         logger.info("Awaiting copy operation for row {} to be completed.", rowIndex);
         executeTaskList(taskList);
+        StatsUtil.getInstance().flushChanges();
         logger.info("Completed copy operation for row {}.", rowIndex);
     }
 
@@ -264,6 +273,7 @@ public class ProcessExecutor {
                 if (isMatchingExcludePattern(dir.toFile().getPath())) {
                     logger.info("skipping sub-path as matched to exclude pattern {}", dir.toFile().getPath());
                     FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), dir.toFile().getPath() + "\n", failFast);
+                    StatsUtil.getInstance().updateFolderStats(true);
                     return FileVisitResult.SKIP_SUBTREE;
                 }
                 return FileVisitResult.CONTINUE;
@@ -275,6 +285,7 @@ public class ProcessExecutor {
                     if (isMatchingExcludePattern(file.toFile().getPath()) || isMatchingExcludeFileTypes(file.toFile().getPath())) {
                         logger.info("skipping file {} as per exclude pattern and file types", file.toFile().getPath());
                         FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), file.toFile().getPath() + "\n", failFast);
+                        StatsUtil.getInstance().updateStats(0, false, true, false);
                         return FileVisitResult.CONTINUE;
                     }
                     final File targetFile = getTargetFile(file, targetFolder);
