@@ -41,6 +41,7 @@ import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 public class ProcessExecutor {
+
     static Logger logger = LogManager.getLogger(ProcessExecutor.class);
     private final String targetFolderPath;
     private final String sourceFolderPath;
@@ -48,7 +49,7 @@ public class ProcessExecutor {
     private final String[] pathSequences;
     private final ExecutorService executorService;
 
-    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number";
+    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number;Episode Title";
     private static final String DEFAULT_GUID_NAME = "GUID";
     private static final DecimalFormat decimalFormat = new DecimalFormat("0.#");
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
@@ -69,7 +70,7 @@ public class ProcessExecutor {
 
         this.inputFile = this.properties.getProperty(PropKeysEnum.INPUT_FILE.name());
         this.sourceFolderPath = this.properties.getProperty(PropKeysEnum.SRC_FOLDER.name());
-        this.targetFolderPath =  this.properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
+        this.targetFolderPath = this.properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
         String folderSequence = this.properties.getProperty(PropKeysEnum.FOLDER_SEQUENCE.name());
 
         initExcludeFileTypes(this.properties.getProperty(PropKeysEnum.EXCLUDE_FILE_TYPES.name()));
@@ -225,11 +226,27 @@ public class ProcessExecutor {
 
     private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair, File folderPathToBeCreated) {
         for (final String pathSequence : pathSequences) {
-            String newChildName = rowEntryKeyValuePair.get(pathSequence.trim());
-            if (replaceChars != null) {
-                newChildName = newChildName.replaceAll(replaceChars, "");
+            final String[] paths = pathSequence.trim().split(";");
+            StringBuilder newChildName = null;
+            for (String pathKey : paths) {
+                String pathValue = rowEntryKeyValuePair.get(pathKey);
+                if (pathValue == null) {
+                    continue;
+                }
+                if (replaceChars != null) {
+                    pathValue = pathValue.replaceAll(replaceChars, "");
+                }
+                if (newChildName == null) {
+                    newChildName = new StringBuilder();
+                    newChildName.append(pathValue);
+                } else {
+                    newChildName.append(" ");
+                    newChildName.append(pathValue);
+                }
             }
-            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName);
+            if (newChildName != null) {
+                folderPathToBeCreated = new File(folderPathToBeCreated, newChildName.toString());
+            }
         }
         return folderPathToBeCreated;
     }
@@ -344,6 +361,7 @@ public class ProcessExecutor {
         MONTH("Month"),
         DAY("Day");
         final String value;
+
         DateKeys(String val) {
             this.value = val;
         }
