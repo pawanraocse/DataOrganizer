@@ -138,8 +138,8 @@ public class ProcessExecutor {
 
     private void addStartEntryInLogFiles() {
         String startEntry = "";
-        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), startEntry, failFast);
-        FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), startEntry, failFast);
+        //FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), startEntry, failFast);
+        //FileUtil.appendEntryToLogFile(DataOrganizerApplication.getSkippedLogFile(), startEntry, failFast);
         FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), startEntry, failFast);
         StatsUtil.getInstance();
     }
@@ -172,7 +172,7 @@ public class ProcessExecutor {
             CellType cellType = cell.getCellType();
             colIndex++;
             if (rowIndex == 1) {
-                colIndexToHeaderMap.put(colIndex, cell.getStringCellValue());
+                colIndexToHeaderMap.put(colIndex, cell.getStringCellValue().trim());
                 continue;
             }
             handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, colIndex, cell, cellType);
@@ -187,7 +187,7 @@ public class ProcessExecutor {
         } else if (Objects.requireNonNull(cellType) == CellType.NUMERIC) {
             rowKeyValueMap.put(colIndexToHeaderMap.get(colIndex), decimalFormat.format(cell.getNumericCellValue()) + "");
         } else if (cellType == CellType.STRING) {
-            rowKeyValueMap.put(colIndexToHeaderMap.get(colIndex), cell.getStringCellValue());
+            rowKeyValueMap.put(colIndexToHeaderMap.get(colIndex), cell.getStringCellValue().trim());
         }
     }
 
@@ -207,12 +207,14 @@ public class ProcessExecutor {
     private void processCopyOperationOnGivenRow(final Map<String, String> rowKeyValueMap, final int rowIndex) throws IOException {
         final File targetFolder = createFolderStructureIfNeeded(pathSequences, rowKeyValueMap, targetFolderPath);
         List<Runnable> taskList = new ArrayList<>();
-        copyFilesFromSourceToTarget(new File(sourceFolderPath, rowKeyValueMap.get(DEFAULT_GUID_NAME)), targetFolder, taskList);
+        copyFilesFromSourceToTarget(new File(sourceFolderPath, rowKeyValueMap.get(DEFAULT_GUID_NAME)), targetFolder, taskList, rowIndex);
 
-        logger.info("Awaiting copy operation for row {} to be completed.", rowIndex);
-        executeTaskList(taskList);
-        StatsUtil.getInstance().flushChanges();
-        logger.info("Completed copy operation for row {}.", rowIndex);
+        if (!taskList.isEmpty()) {
+            logger.info("Awaiting copy operation for row {} to be completed.", rowIndex);
+            executeTaskList(taskList);
+            StatsUtil.getInstance().flushChanges();
+            logger.info("Completed copy operation for row {}.", rowIndex);
+        }
     }
 
     private File createFolderStructureIfNeeded(String[] pathSequences, Map<String, String> rowEntryKeyValuePair, String outputFolderPath) throws IOException {
@@ -266,7 +268,11 @@ public class ProcessExecutor {
      * @param taskList     taskList for executing completable future
      * @throws IOException throw exception if any
      */
-    private void copyFilesFromSourceToTarget(File srcFolder, File targetFolder, List<Runnable> taskList) throws IOException {
+    private void copyFilesFromSourceToTarget(File srcFolder, File targetFolder, List<Runnable> taskList, int rowIndex) throws IOException {
+        if (!srcFolder.exists()) {
+            logger.error("Source folder {} is not present, skipping the row index {} for it ", srcFolder.getPath(), rowIndex);
+            return;
+        }
         Files.walkFileTree(srcFolder.toPath(), new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
@@ -288,11 +294,26 @@ public class ProcessExecutor {
                         StatsUtil.getInstance().updateStats(0, false, true, false);
                         return FileVisitResult.CONTINUE;
                     }
-                    final File targetFile = getTargetFile(file, targetFolder);
+                    File targetFile = getTargetFile(file, targetFolder);
 
-                    if (checkIfFileAlreadyCopied(file, targetFile)) {
-                        logger.info("File {} already present at target {}", file.toFile().getPath(), targetFile.getPath());
-                        return FileVisitResult.CONTINUE;
+                    if (checkIfFileAlreadyExists(file, targetFile)) {
+                        logger.info("File {} with same name already present at target {}", file.toFile().getPath(), targetFile.getPath());
+
+                        if (verifyTheFileIsSame(file.toFile(), targetFile)) {
+                            //Same file already copied, so skip this one
+                            logger.info("Skipping the duplicate file {}", file.toFile().getPath());
+                            FileUtil.appendEntryToLogFile(DataOrganizerApplication.getDuplicateLogFile(), file.toFile().getPath(), failFast);
+                            return FileVisitResult.CONTINUE;
+                        } else {
+                            // file with same name already present, so rename this one.
+                            int counter = 0;
+                            String oldPath = targetFile.getPath();
+                            while (targetFile.exists()) {
+                                targetFile = FileUtil.appendSuffix(targetFile, "-" + ++counter);
+                            }
+                            logger.info("Renaming the target file {} with {}", oldPath, targetFile.getPath());
+                        }
+
                     }
                     addNewCopyTask(file, targetFile, taskList, srcFolder);
                 }
@@ -309,8 +330,8 @@ public class ProcessExecutor {
         }
     }
 
-    private boolean checkIfFileAlreadyCopied(final Path file, final File targetFile) {
-        return targetFile.exists() && (verifyTheFileIsSame(file.toFile(), targetFile));
+    private boolean checkIfFileAlreadyExists(final Path file, final File targetFile) {
+        return targetFile.exists() && Objects.equals(file.toFile().getName(), targetFile.getName());
     }
 
     private File getTargetFile(final Path file, final File targetFolder) {
@@ -344,6 +365,9 @@ public class ProcessExecutor {
             logger.error("Failed to compute the checksum, copying file again.");
             return false;
         }
+
+        //
+
         return true;
     }
 

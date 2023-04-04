@@ -1,5 +1,6 @@
 package com.tech;
 
+import com.sun.org.apache.xerces.internal.dom.AbortException;
 import com.tech.utils.FileUtil;
 import com.tech.utils.StatsUtil;
 import org.apache.logging.log4j.LogManager;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 public class CopyFileTask implements Runnable {
@@ -39,6 +41,7 @@ public class CopyFileTask implements Runnable {
     public void run() {
         logger.info("Starting copy file {} to {}", fromPath, toPath);
         String contentToAppend = fromPath.getPath() + "->" + toPath.getPath() + "\n";
+        boolean errorOut = false;
         try {
             if (useStreamCopy) {
                 copyUsingChunks();
@@ -49,12 +52,22 @@ public class CopyFileTask implements Runnable {
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getCopiedFileLogPath(), contentToAppend, failFast);
             StatsUtil.getInstance().updateStats(fromPath.length(), true, false, false);
         } catch (Exception e) {
+            errorOut = true;
             logger.error(e);
             logger.error("Failed to copy file {} to the destination {}", fromPath, toPath);
             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);
             StatsUtil.getInstance().updateStats(fromPath.length(), false, false, true);
             if (failFast) {
                 throw new RuntimeException(e);
+            }
+        } finally {
+            if (toPath.exists() && fromPath.length() != toPath.length()) {
+                toPath.delete();
+                if (!errorOut) {
+                    logger.error("Failed to copy file {} to the destination {}", fromPath, toPath);
+                    FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);
+                    StatsUtil.getInstance().updateStats(fromPath.length(), false, false, true);
+                }
             }
         }
     }

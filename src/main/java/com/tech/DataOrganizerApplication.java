@@ -25,6 +25,7 @@ public class DataOrganizerApplication {
     private static final String FILES_FAILED = "files-failed.txt";
     private static final String FILES_COPIED = "files-copied.txt";
     private static final String FILES_SKIPPED = "files-skipped.txt";
+    private static final String FILES_DUPLICATE = "files-duplicate.txt";
     private final Properties properties;
 
     private DataOrganizerApplication(Properties properties) {
@@ -134,6 +135,10 @@ public class DataOrganizerApplication {
 
     public static File getSkippedLogFile() {
         return new File(getPropsFilePath(), FILES_SKIPPED);
+    }
+
+    public static File getDuplicateLogFile() {
+        return new File(getPropsFilePath(), FILES_DUPLICATE);
     }
 
     private static void showHelp() {

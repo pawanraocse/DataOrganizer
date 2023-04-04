@@ -1,5 +1,6 @@
 package com.tech.utils;
 
+import com.tech.DataOrganizerApplication;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,6 +38,23 @@ public class FileUtil {
             }
         }
         return true;
+    }
+
+    public static void main(String[] args) {
+        final File failedFileLogPath = DataOrganizerApplication.getFailedFileLogPath();
+        final File file = appendSuffix(failedFileLogPath, "-1");
+        System.out.println(file.getPath());
+    }
+
+    public static File appendSuffix(File file, String suffix) {
+        String path = file.getPath();
+        final int indexOfDot = path.lastIndexOf(".");
+        if (indexOfDot > -1) {
+            file = new File(path.substring(0, indexOfDot) + suffix + path.substring(indexOfDot));
+        } else {
+            file = new File(path + suffix);
+        }
+        return file;
     }
 
     public static void rename(final File file, final String newName) {
