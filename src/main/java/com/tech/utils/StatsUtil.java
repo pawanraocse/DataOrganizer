@@ -18,6 +18,7 @@ public class StatsUtil {
     private AtomicInteger totalFilesFailed;
     private AtomicInteger totalFilesSkipped;
     private AtomicInteger totalFoldersSkipped;
+    private AtomicInteger totalDuplicateFiles;
     private volatile long totalLengthCopied;
 
     private static volatile StatsUtil instance;
@@ -46,6 +47,7 @@ public class StatsUtil {
             totalFilesCopied = new AtomicInteger(PropFileHandler.getInteger(StatsKey.COPIED_FILES.name(), statsPropFile, 0));
             totalFilesFailed = new AtomicInteger(PropFileHandler.getInteger(StatsKey.FAILED_FILES.name(), statsPropFile, 0));
             totalFilesSkipped = new AtomicInteger(PropFileHandler.getInteger(StatsKey.SKIPPED_FILES.name(), statsPropFile, 0));
+            totalDuplicateFiles = new AtomicInteger(PropFileHandler.getInteger(StatsKey.DUPLICATE_FILES.name(), statsPropFile, 0));
             totalFoldersSkipped = new AtomicInteger(PropFileHandler.getInteger(StatsKey.SKIPPED_FOLDERS.name(), statsPropFile, 0));
             totalLengthCopied = parseSize(PropFileHandler.getString(StatsKey.TOTAL_COPIED_LENGTH.name(), statsPropFile, "0"));
         } catch (IOException e) {
@@ -64,6 +66,10 @@ public class StatsUtil {
         }
     }
 
+    public void updateDupFile() {
+        totalDuplicateFiles.incrementAndGet();
+    }
+
     public synchronized void updateFolderStats(boolean isSkipped) {
         if (isSkipped) {
             totalFoldersSkipped.incrementAndGet();
@@ -75,8 +81,9 @@ public class StatsUtil {
         PropFileHandler.setProperty(StatsKey.FAILED_FILES.name(), totalFilesFailed + "", statsPropFile);
         PropFileHandler.setProperty(StatsKey.SKIPPED_FILES.name(), totalFilesSkipped + "", statsPropFile);
         PropFileHandler.setProperty(StatsKey.SKIPPED_FOLDERS.name(), totalFoldersSkipped + "", statsPropFile);
-        final String toDisplaySize = readableFileSize(totalLengthCopied);
+        PropFileHandler.setProperty(StatsKey.DUPLICATE_FILES.name(), totalDuplicateFiles + "", statsPropFile);
 
+        final String toDisplaySize = readableFileSize(totalLengthCopied);
         PropFileHandler.setProperty(StatsKey.TOTAL_COPIED_LENGTH.name(), toDisplaySize, statsPropFile);
         try {
             PropFileHandler.flush(statsPropFile, DataOrganizerApplication.getStatsFilePath());
@@ -135,6 +142,7 @@ public class StatsUtil {
         COPIED_FILES,
         SKIPPED_FILES,
         SKIPPED_FOLDERS,
+        DUPLICATE_FILES,
         TOTAL_COPIED_LENGTH
     }
 

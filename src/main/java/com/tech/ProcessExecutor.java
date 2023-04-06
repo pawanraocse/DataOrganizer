@@ -308,6 +308,7 @@ public class ProcessExecutor {
                             //Same file already copied, so skip this one
                             logger.info("Skipping the duplicate file {}", file.toFile().getPath());
                             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getDuplicateLogFile(), file.toFile().getPath(), failFast);
+                            StatsUtil.getInstance().updateDupFile();
                             return FileVisitResult.CONTINUE;
                         } else {
                             // file with same name already present, so rename this one.
