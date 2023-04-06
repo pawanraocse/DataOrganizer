@@ -64,6 +64,8 @@ public class ProcessExecutor {
     private final boolean failFast;
     private final boolean shallowFileComparison;
 
+    private Map<String, String> targetFileToSrcFileMap;
+
     public ProcessExecutor(Properties properties) {
         this.properties = properties;
 
@@ -87,6 +89,8 @@ public class ProcessExecutor {
 
         int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), this.properties, 3);
         executorService = Executors.newFixedThreadPool(nThreads);
+
+        targetFileToSrcFileMap = new HashMap<>();
 
         logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
             inputFile, sourceFolderPath, targetFolderPath, folderSequence);
@@ -298,8 +302,9 @@ public class ProcessExecutor {
 
                     if (checkIfFileAlreadyExists(file, targetFile)) {
                         logger.info("File {} with same name already present at target {}", file.toFile().getPath(), targetFile.getPath());
+                        File targetFileInst = targetFile.exists() ? targetFile : new File(targetFileToSrcFileMap.get(targetFile.getPath()));
 
-                        if (verifyTheFileIsSame(file.toFile(), targetFile)) {
+                        if (verifyTheFileIsSame(file.toFile(), targetFileInst)) {
                             //Same file already copied, so skip this one
                             logger.info("Skipping the duplicate file {}", file.toFile().getPath());
                             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getDuplicateLogFile(), file.toFile().getPath(), failFast);
@@ -308,7 +313,7 @@ public class ProcessExecutor {
                             // file with same name already present, so rename this one.
                             int counter = 0;
                             String oldPath = targetFile.getPath();
-                            while (targetFile.exists()) {
+                            while (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath())) {
                                 targetFile = FileUtil.appendSuffix(targetFile, "-" + ++counter);
                             }
                             logger.info("Renaming the target file {} with {}", oldPath, targetFile.getPath());
@@ -323,6 +328,7 @@ public class ProcessExecutor {
     }
 
     private void addNewCopyTask(final Path file, final File targetFile, final List<Runnable> taskList, final File srcFolder) {
+        targetFileToSrcFileMap.put(targetFile.getPath(), file.toFile().getPath());
         taskList.add(new CopyFileTask(file.toFile(), targetFile, blockSize, useStreamCopy, failFast));
         if (taskList.size() >= 1000) {
             executeTaskList(taskList);
@@ -331,7 +337,8 @@ public class ProcessExecutor {
     }
 
     private boolean checkIfFileAlreadyExists(final Path file, final File targetFile) {
-        return targetFile.exists() && Objects.equals(file.toFile().getName(), targetFile.getName());
+        return (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath()))
+            && Objects.equals(file.toFile().getName(), targetFile.getName());
     }
 
     private File getTargetFile(final Path file, final File targetFolder) {
@@ -349,6 +356,7 @@ public class ProcessExecutor {
         logger.info("Starting copy operation...");
         CompletableFuture.allOf(futures).join();
         taskList.clear();
+        targetFileToSrcFileMap.clear();
     }
 
     private boolean verifyTheFileIsSame(final File srcFile, final File targetFile) {
@@ -365,8 +373,6 @@ public class ProcessExecutor {
             logger.error("Failed to compute the checksum, copying file again.");
             return false;
         }
-
-        //
 
         return true;
     }
