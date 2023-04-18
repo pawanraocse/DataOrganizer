@@ -38,7 +38,7 @@ public class CopyFileTask implements Runnable {
     }
 
     @Override
-    public void run() {
+    public void run() throws RuntimeException {
         logger.info("Starting copy file {} to {}", fromPath, toPath);
         String contentToAppend = fromPath.getPath() + "->" + toPath.getPath() + "\n";
         boolean errorOut = false;
@@ -62,7 +62,12 @@ public class CopyFileTask implements Runnable {
             }
         } finally {
             if (toPath.exists() && fromPath.length() != toPath.length()) {
-                toPath.delete();
+                try {
+                    Files.delete(toPath.toPath());
+                } catch (IOException e) {
+                   logger.error("Failed to delete file {}", toPath.getPath());
+                   logger.error(e);
+                }
                 if (!errorOut) {
                     logger.error("Failed to copy file {} to the destination {}", fromPath, toPath);
                     FileUtil.appendEntryToLogFile(DataOrganizerApplication.getFailedFileLogPath(), contentToAppend, failFast);

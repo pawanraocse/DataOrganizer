@@ -300,25 +300,25 @@ public class ProcessExecutor {
                     }
                     File targetFile = getTargetFile(file, targetFolder);
 
-                    if (checkIfFileAlreadyExists(file, targetFile)) {
+                    if (checkIfFileAlreadyExists(targetFile)) {
                         logger.info("File {} with same name already present at target {}", file.toFile().getPath(), targetFile.getPath());
-                        File targetFileInst = targetFile.exists() ? targetFile : new File(targetFileToSrcFileMap.get(targetFile.getPath()));
-
-                        if (verifyTheFileIsSame(file.toFile(), targetFileInst)) {
+                        //File targetFileInst = targetFile.exists() ? targetFile : new File(targetFileToSrcFileMap.get(targetFile.getPath()));
+                       /* if (verifyTheFileIsSame(file.toFile(), targetFileInst)) {
                             //Same file already copied, so skip this one
                             logger.info("Skipping the duplicate file {}", file.toFile().getPath());
                             FileUtil.appendEntryToLogFile(DataOrganizerApplication.getDuplicateLogFile(), file.toFile().getPath(), failFast);
                             StatsUtil.getInstance().updateDupFile();
                             return FileVisitResult.CONTINUE;
-                        } else {
-                            // file with same name already present, so rename this one.
-                            int counter = 0;
-                            String oldPath = targetFile.getPath();
-                            while (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath())) {
-                                targetFile = FileUtil.appendSuffix(targetFile, "-" + ++counter);
-                            }
-                            logger.info("Renaming the target file {} with {}", oldPath, targetFile.getPath());
+                        } else {*/
+                        // file with same name already present, so rename this one.
+                        int counter = 0;
+                        String oldPath = targetFile.getPath();
+                        while (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath())) {
+                            counter += 1;
+                            targetFile = FileUtil.appendSuffix(new File(oldPath), "-" + counter);
                         }
+                        logger.info("Renaming the target file {} with {}", oldPath, targetFile.getPath());
+                        //}
 
                     }
                     addNewCopyTask(file, targetFile, taskList, srcFolder);
@@ -337,9 +337,8 @@ public class ProcessExecutor {
         }
     }
 
-    private boolean checkIfFileAlreadyExists(final Path file, final File targetFile) {
-        return (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath()))
-            && Objects.equals(file.toFile().getName(), targetFile.getName());
+    private boolean checkIfFileAlreadyExists(final File targetFile) {
+        return (targetFile.exists() || targetFileToSrcFileMap.containsKey(targetFile.getPath()));
     }
 
     private File getTargetFile(final Path file, final File targetFolder) {

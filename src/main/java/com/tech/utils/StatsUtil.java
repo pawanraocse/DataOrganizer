@@ -98,7 +98,8 @@ public class StatsUtil {
         }
         final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
         int digitGroups = (int) (Math.log10(size) / Math.log10(1024));
-        return new DecimalFormat("#.##").format(size / Math.pow(1024, digitGroups))
+        final double sizeVal = Math.ceil(size / Math.pow(1024, digitGroups));
+        return new DecimalFormat("#.##").format(sizeVal)
             + " " + units[digitGroups];
     }
 
