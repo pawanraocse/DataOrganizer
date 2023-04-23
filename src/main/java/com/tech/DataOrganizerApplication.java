@@ -71,6 +71,9 @@ public class DataOrganizerApplication {
                     case TARGET_FOLDER:
                         properties.put(PropKeysEnum.TARGET_FOLDER.name(), args[i++]);
                         break;
+                    case QUARANTINE_FOLDER:
+                        properties.put(PropKeysEnum.QUARANTINE_FOLDER.name(), args[i++]);
+                        break;
                     case FOLDER_SEQUENCE:
                         properties.put(PropKeysEnum.FOLDER_SEQUENCE.name(), args[i++]);
                         break;
@@ -147,6 +150,7 @@ public class DataOrganizerApplication {
         printConsoleLog("PROP_FILE          -- Properties file path containing all the needed properties key values.\n\t\t\t\t\t\tDefault path for properties file is " + getPropFilePath());
         printConsoleLog("SRC_FOLDER*        -- Source folder path which needs to be copied into a organised structure");
         printConsoleLog("TARGET_FOLDER*     -- Target folder path where needs to be copy the files into organised structure");
+        printConsoleLog("QUARANTINE_FOLDER*  -- Target folder path where needs to be copy the files if the path columns value is not present");
         printConsoleLog("FOLDER_SEQUENCE    -- Customise the folder path to be created target folder based on column values in excel.\n\t\t\t\t\t\tDefault path is Decade->Series Title->Year->Episode Number");
         printConsoleLog("COPY_BLOCK_SIZE    -- Block size used for copy file using streams\n\t\t\t\t\t\tDefault value is 4096");
         printConsoleLog("USE_STREAM_COPY    -- Use buffered streams to copy file else will use the Java Files.copy.\n\t\t\t\t\t\tDefault value is true");

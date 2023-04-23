@@ -5,6 +5,7 @@ public enum PropKeysEnum {
     PROP_FILE,
     SRC_FOLDER,
     TARGET_FOLDER,
+    QUARANTINE_FOLDER,
     FOLDER_SEQUENCE,
     COPY_BLOCK_SIZE,
     USE_STREAM_COPY,

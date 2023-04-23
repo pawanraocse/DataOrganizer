@@ -45,6 +45,8 @@ public class ProcessExecutor {
 
     static Logger logger = LogManager.getLogger(ProcessExecutor.class);
     private final String targetFolderPath;
+    private final String targetQuarantinePath;
+    private File targetQuarantineFolderPath;
     private final String sourceFolderPath;
     private final String inputFile;
     private final String[] pathSequences;
@@ -72,6 +74,16 @@ public class ProcessExecutor {
         this.inputFile = this.properties.getProperty(PropKeysEnum.INPUT_FILE.name());
         this.sourceFolderPath = this.properties.getProperty(PropKeysEnum.SRC_FOLDER.name());
         this.targetFolderPath = this.properties.getProperty(PropKeysEnum.TARGET_FOLDER.name());
+
+        this.targetQuarantinePath = this.properties.getProperty(PropKeysEnum.QUARANTINE_FOLDER.name());
+        if (StringUtil.isBlank(this.targetQuarantinePath)) {
+            this.targetQuarantineFolderPath = new File(new File(targetFolderPath).getParentFile(), "quarantine");
+        } else {
+            this.targetQuarantineFolderPath = new File(targetQuarantinePath);
+        }
+
+        //this.targetQuarantineFolderPath = backUpIfFolderAlreadyExists(this.targetQuarantineFolderPath);
+
         String folderSequence = this.properties.getProperty(PropKeysEnum.FOLDER_SEQUENCE.name());
 
         initExcludeFileTypes(this.properties.getProperty(PropKeysEnum.EXCLUDE_FILE_TYPES.name()));
@@ -92,9 +104,22 @@ public class ProcessExecutor {
 
         targetFileToSrcFileMap = new HashMap<>();
 
-        logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}",
-            inputFile, sourceFolderPath, targetFolderPath, folderSequence);
+        logger.info("Initializing executor with received args:\ninputFile {}\nsourceFolderPath {}\ntargetFolderPath {}\nfolder sequence {}\nQuarantine folder{}",
+            inputFile, sourceFolderPath, targetFolderPath, folderSequence, this.targetQuarantineFolderPath.getPath());
     }
+
+  /*  private File backUpIfFolderAlreadyExists(File targetFolder) {
+        if (Files.exists(targetFolder.toPath())) {
+            int counter = 0;
+            File targetQuarantineFolderPathIns = new File(targetFolder.getPath());
+            while (Files.exists(targetQuarantineFolderPathIns.toPath())) {
+                counter++;
+                targetQuarantineFolderPathIns = new File(targetFolder.getPath() + "-" + counter);
+            }
+            targetFolder = targetQuarantineFolderPathIns;
+        }
+        return targetFolder;
+    }*/
 
     private void initExcludePatterns(final String excludePatterns) {
         if (StringUtil.isNotBlank(excludePatterns)) {
@@ -116,7 +141,6 @@ public class ProcessExecutor {
         Workbook workbook;
         Map<Integer, String> colIndexToHeaderMap = new HashMap<>();
         final int start_index = PropFileHandler.getInteger(PropKeysEnum.START_INDEX.name() + "_" + inputFile, this.properties, 0);
-        int rowIndex = 0;
 
         if (start_index == 0) {
             takeBackUpOfExistingLogIfPresent();
@@ -126,7 +150,7 @@ public class ProcessExecutor {
         try (FileInputStream file = new FileInputStream(inputFile)) {
             workbook = new XSSFWorkbook(file);
             Sheet sheet = workbook.getSheetAt(0);
-            readSheetAndStartFileCopy(colIndexToHeaderMap, start_index, rowIndex, sheet);
+            readSheetAndStartFileCopy(colIndexToHeaderMap, start_index, sheet);
         }
 
         logger.info("Completed all tasks, calling final shutdown.");
@@ -148,22 +172,35 @@ public class ProcessExecutor {
         StatsUtil.getInstance();
     }
 
-    private void readSheetAndStartFileCopy(final Map<Integer, String> colIndexToHeaderMap, final int start_index, int rowIndex, final Sheet sheet) throws IOException {
-        int colIndex;
+    private void readSheetAndStartFileCopy(final Map<Integer, String> colIndexToHeaderMap, final int start_index, final Sheet sheet) throws IOException {
         Map<String, String> colKeyValueMapInCurrentRow;
         for (Row row : sheet) {
-            rowIndex++;
-            if (rowIndex != 1 && rowIndex <= start_index) {
+            int rowIndex = row.getRowNum();
+            if (rowIndex != 0 && rowIndex <= start_index) {
                 continue;
             }
-            colIndex = 0;
             colKeyValueMapInCurrentRow = new HashMap<>();
-            iterateOverAllColsInRowToStoreInKeyValuePair(colIndexToHeaderMap, rowIndex, colIndex, colKeyValueMapInCurrentRow, row);
-            if (rowIndex > 1) {
+            iterateOverAllColsInRowToStoreInKeyValuePair(colIndexToHeaderMap, rowIndex, colKeyValueMapInCurrentRow, row);
+            if (rowIndex > 0 && (isValidGUIDName(colKeyValueMapInCurrentRow, rowIndex))) {
                 processCopyOperationOnGivenRow(colKeyValueMapInCurrentRow, rowIndex);
                 updatePropertiesFileWithStartIndex(rowIndex);
             }
         }
+    }
+
+    private boolean isValidGUIDName(final Map<String, String> colKeyValueMapInCurrentRow, final int rowIndex) {
+        String guidValue = colKeyValueMapInCurrentRow.get(DEFAULT_GUID_NAME);
+        if (guidValue == null || guidValue.isEmpty()) {
+            logger.info("Skipping row index {} as the guid name is blank", rowIndex);
+            return false;
+        }
+
+        final File guidSrcFolder = new File(sourceFolderPath, guidValue);
+        if (!guidSrcFolder.exists()) {
+            logger.info("Skipping row index {} as the guid path does not exists", rowIndex);
+            return false;
+        }
+        return true;
     }
 
     private void updatePropertiesFileWithStartIndex(final int rowIndex) throws IOException {
@@ -171,27 +208,26 @@ public class ProcessExecutor {
         PropFileHandler.flush(this.properties, DataOrganizerApplication.getPropFilePath());
     }
 
-    private static void iterateOverAllColsInRowToStoreInKeyValuePair(final Map<Integer, String> colIndexToHeaderMap, final int rowIndex, int colIndex, final Map<String, String> colKeyValueMapInCurrentRow, final Row row) {
+    private static void iterateOverAllColsInRowToStoreInKeyValuePair(final Map<Integer, String> colIndexToHeaderMap, final int rowIndex, final Map<String, String> colKeyValueMapInCurrentRow, final Row row) {
         for (Cell cell : row) {
             CellType cellType = cell.getCellType();
-            colIndex++;
-            if (rowIndex == 1) {
-                colIndexToHeaderMap.put(colIndex, cell.getStringCellValue().trim());
+            if (rowIndex == 0) {
+                colIndexToHeaderMap.put(cell.getColumnIndex(), cell.getStringCellValue().trim());
                 continue;
             }
-            handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, colIndex, cell, cellType);
+            handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, cell, cellType);
         }
     }
 
     private static void handleColumnValueAndStoreInKeyValueMap(final Map<String, String> rowKeyValueMap, final Map<Integer, String> colIndexToHeaderMap,
-                                                               final int colIndex, final Cell cell,
+                                                               final Cell cell,
                                                                final CellType cellType) {
         if (Objects.requireNonNull(cellType) == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
             breakDateFieldAndStoreInKeyValueMap(rowKeyValueMap, cell);
         } else if (Objects.requireNonNull(cellType) == CellType.NUMERIC) {
-            rowKeyValueMap.put(colIndexToHeaderMap.get(colIndex), decimalFormat.format(cell.getNumericCellValue()) + "");
+            rowKeyValueMap.put(colIndexToHeaderMap.get(cell.getColumnIndex()), decimalFormat.format(cell.getNumericCellValue()) + "");
         } else if (cellType == CellType.STRING) {
-            rowKeyValueMap.put(colIndexToHeaderMap.get(colIndex), cell.getStringCellValue().trim());
+            rowKeyValueMap.put(colIndexToHeaderMap.get(cell.getColumnIndex()), cell.getStringCellValue().trim());
         }
     }
 
@@ -209,7 +245,7 @@ public class ProcessExecutor {
     }
 
     private void processCopyOperationOnGivenRow(final Map<String, String> rowKeyValueMap, final int rowIndex) throws IOException {
-        final File targetFolder = createFolderStructureIfNeeded(pathSequences, rowKeyValueMap, targetFolderPath);
+        final File targetFolder = createFolderStructureIfNeeded(pathSequences, rowKeyValueMap, targetFolderPath, rowIndex);
         List<Runnable> taskList = new ArrayList<>();
         copyFilesFromSourceToTarget(new File(sourceFolderPath, rowKeyValueMap.get(DEFAULT_GUID_NAME)), targetFolder, taskList, rowIndex);
 
@@ -221,9 +257,10 @@ public class ProcessExecutor {
         }
     }
 
-    private File createFolderStructureIfNeeded(String[] pathSequences, Map<String, String> rowEntryKeyValuePair, String outputFolderPath) throws IOException {
+    private File createFolderStructureIfNeeded(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair, final String outputFolderPath,
+                                               final int rowIndex) throws IOException {
         File folderPathToBeCreated = new File(outputFolderPath);
-        folderPathToBeCreated = iterateOverPathSequenceToAppendPath(pathSequences, rowEntryKeyValuePair, folderPathToBeCreated);
+        folderPathToBeCreated = iterateOverPathSequenceToAppendPath(pathSequences, rowEntryKeyValuePair, folderPathToBeCreated, rowIndex);
         try {
             if (!folderPathToBeCreated.exists() && !folderPathToBeCreated.mkdirs()) {
                 logger.error("Failed to create the folder path: {}", folderPathToBeCreated);
@@ -239,31 +276,40 @@ public class ProcessExecutor {
         return folderPathToBeCreated;
     }
 
-    private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair, File folderPathToBeCreated) {
+    private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair,
+                                                     File folderPathToBeCreated, final int rowIndex) {
+        mainLoop:
         for (final String pathSequence : pathSequences) {
             final String[] paths = pathSequence.trim().split(";");
             StringBuilder newChildName = null;
             for (String pathKey : paths) {
                 String pathValue = rowEntryKeyValuePair.get(pathKey);
                 if (pathValue == null) {
-                    continue;
+                    folderPathToBeCreated = this.targetQuarantineFolderPath;
+                    logger.info("{} column value is empty for the row index {}", pathKey, rowIndex);
+                    break mainLoop;
                 }
                 if (replaceChars != null) {
                     pathValue = pathValue.replaceAll(replaceChars, "");
                 }
-                if (newChildName == null) {
-                    newChildName = new StringBuilder();
-                    newChildName.append(pathValue);
-                } else {
-                    newChildName.append(" ");
-                    newChildName.append(pathValue);
-                }
+                newChildName = appendValueToSB(newChildName, pathValue);
             }
             if (newChildName != null) {
                 folderPathToBeCreated = new File(folderPathToBeCreated, newChildName.toString());
             }
         }
         return folderPathToBeCreated;
+    }
+
+    private static StringBuilder appendValueToSB(StringBuilder newChildName, final String pathValue) {
+        if (newChildName == null) {
+            newChildName = new StringBuilder();
+            newChildName.append(pathValue);
+        } else {
+            newChildName.append(" ");
+            newChildName.append(pathValue);
+        }
+        return newChildName;
     }
 
     /**
