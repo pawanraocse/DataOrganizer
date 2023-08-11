@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ProcessExecutor {
 
@@ -50,9 +51,12 @@ public class ProcessExecutor {
     private final String sourceFolderPath;
     private final String inputFile;
     private final String[] pathSequences;
+    private final Set<String> optionalPathSequences;
     private final ExecutorService executorService;
 
-    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number;Episode Title";
+    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number;Episode Title->Title_Version_Additional_Infor";
+
+    private static final String DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS = "Series Title";
     private static final String DEFAULT_GUID_NAME = "GUID";
     private static final DecimalFormat decimalFormat = new DecimalFormat("0.#");
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
@@ -77,7 +81,7 @@ public class ProcessExecutor {
 
         this.targetQuarantinePath = this.properties.getProperty(PropKeysEnum.QUARANTINE_FOLDER.name());
         if (StringUtil.isBlank(this.targetQuarantinePath)) {
-            this.targetQuarantineFolderPath = new File(new File(targetFolderPath).getParentFile(), "quarantine");
+            this.targetQuarantineFolderPath = new File(new File(targetFolderPath), "quarantine");
         } else {
             this.targetQuarantineFolderPath = new File(targetQuarantinePath);
         }
@@ -96,8 +100,14 @@ public class ProcessExecutor {
         failFast = PropFileHandler.getBoolean(PropKeysEnum.FAIL_FAST.name(), this.properties, true);
         shallowFileComparison = PropFileHandler.getBoolean(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), this.properties, false);
 
-        folderSequence = folderSequence == null || folderSequence.trim().isEmpty() ? DEFAULT_FOLDER_SEQUENCE_PATH : folderSequence;
+        folderSequence = folderSequence == null || folderSequence.trim().isEmpty() ? DEFAULT_FOLDER_SEQUENCE_PATH : folderSequence.trim();
         pathSequences = folderSequence.split("->");
+
+        String optionalFields = this.properties.getProperty(PropKeysEnum.OPTIONAL_PATH_FIELDS.name());
+        optionalFields = optionalFields == null ? null : optionalFields.trim();
+        optionalFields = StringUtil.isBlank(optionalFields) ? DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS : optionalFields;
+
+        optionalPathSequences = Arrays.stream(optionalFields.split("->")).collect(Collectors.toSet());
 
         int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), this.properties, 3);
         executorService = Executors.newFixedThreadPool(nThreads);
@@ -285,6 +295,11 @@ public class ProcessExecutor {
             for (String pathKey : paths) {
                 String pathValue = rowEntryKeyValuePair.get(pathKey);
                 if (pathValue == null) {
+                    if (optionalPathSequences.contains(pathKey)) {
+                        logger.info("{} optional column value is empty for the row index {}", pathKey, rowIndex);
+                        logger.info("Checking next fields to calculate the target folder");
+                        continue;
+                    }
                     folderPathToBeCreated = this.targetQuarantineFolderPath;
                     logger.info("{} column value is empty for the row index {}", pathKey, rowIndex);
                     break mainLoop;
