@@ -56,7 +56,7 @@ public class ProcessExecutor {
 
     private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number;Episode Title->Title_Version_Additional_Infor";
 
-    private static final String DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS = "Series Title";
+    private static final String DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS = "Series Title->Episode Number->Title_Version_Additional_Infor";
     private static final String DEFAULT_GUID_NAME = "GUID";
     private static final DecimalFormat decimalFormat = new DecimalFormat("0.#");
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
@@ -107,7 +107,10 @@ public class ProcessExecutor {
         optionalFields = optionalFields == null ? null : optionalFields.trim();
         optionalFields = StringUtil.isBlank(optionalFields) ? DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS : optionalFields;
 
-        optionalPathSequences = Arrays.stream(optionalFields.split("->")).collect(Collectors.toSet());
+        optionalPathSequences = Arrays.stream(optionalFields.split("->"))
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+
 
         int nThreads = PropFileHandler.getInteger(PropKeysEnum.COPY_THREADS.name(), this.properties, 3);
         executorService = Executors.newFixedThreadPool(nThreads);
@@ -288,32 +291,41 @@ public class ProcessExecutor {
 
     private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair,
                                                      File folderPathToBeCreated, final int rowIndex) {
-        mainLoop:
         for (final String pathSequence : pathSequences) {
             final String[] paths = pathSequence.trim().split(";");
-            StringBuilder newChildName = null;
+            StringBuilder newChildName = new StringBuilder();
             for (String pathKey : paths) {
                 String pathValue = rowEntryKeyValuePair.get(pathKey);
                 if (pathValue == null) {
-                    if (optionalPathSequences.contains(pathKey)) {
-                        logger.info("{} optional column value is empty for the row index {}", pathKey, rowIndex);
-                        logger.info("Checking next fields to calculate the target folder");
+                    if (checkIfOptionalPathSequence(rowIndex, pathKey)) {
                         continue;
                     }
                     folderPathToBeCreated = this.targetQuarantineFolderPath;
                     logger.info("{} column value is empty for the row index {}", pathKey, rowIndex);
-                    break mainLoop;
+                    return folderPathToBeCreated;
                 }
-                if (replaceChars != null) {
-                    pathValue = pathValue.replaceAll(replaceChars, "");
-                }
-                newChildName = appendValueToSB(newChildName, pathValue);
+                pathValue = replaceCharsIfAny(pathValue);
+                appendValueToSB(newChildName, pathValue);
             }
-            if (newChildName != null) {
-                folderPathToBeCreated = new File(folderPathToBeCreated, newChildName.toString());
-            }
+            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName.toString());
         }
         return folderPathToBeCreated;
+    }
+
+    private String replaceCharsIfAny(String pathValue) {
+        if (replaceChars != null) {
+            pathValue = pathValue.replaceAll(replaceChars, "");
+        }
+        return pathValue;
+    }
+
+    private boolean checkIfOptionalPathSequence(final int rowIndex, final String pathKey) {
+        if (optionalPathSequences.contains(pathKey.toLowerCase())) {
+            logger.info("{} optional column value is empty for the row index {}", pathKey, rowIndex);
+            logger.info("Checking next fields to calculate the target folder");
+            return true;
+        }
+        return false;
     }
 
     private static StringBuilder appendValueToSB(StringBuilder newChildName, final String pathValue) {
@@ -404,9 +416,7 @@ public class ProcessExecutor {
 
     private File getTargetFile(final Path file, final File targetFolder) {
         String targetFileName = file.toFile().getName();
-        if (replaceChars != null) {
-            targetFileName = targetFileName.replaceAll(replaceChars, "");
-        }
+        targetFileName = replaceCharsIfAny(targetFileName);
         return new File(targetFolder, targetFileName);
     }
 
