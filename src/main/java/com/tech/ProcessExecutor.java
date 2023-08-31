@@ -293,7 +293,7 @@ public class ProcessExecutor {
                                                      File folderPathToBeCreated, final int rowIndex) {
         for (final String pathSequence : pathSequences) {
             final String[] paths = pathSequence.trim().split(";");
-            StringBuilder newChildName = new StringBuilder();
+            StringBuilder newChildName = null;
             for (String pathKey : paths) {
                 String pathValue = rowEntryKeyValuePair.get(pathKey);
                 if (pathValue == null) {
@@ -305,9 +305,9 @@ public class ProcessExecutor {
                     return folderPathToBeCreated;
                 }
                 pathValue = replaceCharsIfAny(pathValue);
-                appendValueToSB(newChildName, pathValue);
+                newChildName = appendValueToSB(newChildName, pathValue);
             }
-            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName.toString());
+            folderPathToBeCreated = new File(folderPathToBeCreated, newChildName == null ? "" : newChildName.toString());
         }
         return folderPathToBeCreated;
     }

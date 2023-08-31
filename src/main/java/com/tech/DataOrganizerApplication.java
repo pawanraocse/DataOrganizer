@@ -50,59 +50,60 @@ public class DataOrganizerApplication {
             properties = PropFileHandler.readPropertiesFile(propFilePath.getPath());
         } else {
             properties = new Properties();
-            int i = 0;
-            for (String arg : args) {
+            for (int i =0; i< args.length; ++i) {
+                String arg = args[i];
                 arg = arg.toUpperCase().trim();
-                i++;
                 final PropKeysEnum argEnum = PropKeysEnum.valueOf(arg);
                 switch (argEnum) {
                     case HELP:
                         showHelp();
                         break;
                     case INPUT_FILE:
-                        properties.put(INPUT_FILE.name(), args[i++]);
+                        properties.put(INPUT_FILE.name(), args[++i]);
                         break;
                     case PROP_FILE:
-                        properties.put(PropKeysEnum.PROP_FILE.name(), args[i++]);
+                        properties.put(PropKeysEnum.PROP_FILE.name(), args[++i]);
+                        String path = (String) properties.get(PropKeysEnum.PROP_FILE.name());
+                        properties = PropFileHandler.readPropertiesFile(new File(path).getPath());
                         break;
                     case SRC_FOLDER:
-                        properties.put(PropKeysEnum.SRC_FOLDER.name(), args[i++]);
+                        properties.put(PropKeysEnum.SRC_FOLDER.name(), args[++i]);
                         break;
                     case TARGET_FOLDER:
-                        properties.put(PropKeysEnum.TARGET_FOLDER.name(), args[i++]);
+                        properties.put(PropKeysEnum.TARGET_FOLDER.name(), args[++i]);
                         break;
                     case QUARANTINE_FOLDER:
-                        properties.put(PropKeysEnum.QUARANTINE_FOLDER.name(), args[i++]);
+                        properties.put(PropKeysEnum.QUARANTINE_FOLDER.name(), args[++i]);
                         break;
                     case FOLDER_SEQUENCE:
-                        properties.put(PropKeysEnum.FOLDER_SEQUENCE.name(), args[i++]);
+                        properties.put(PropKeysEnum.FOLDER_SEQUENCE.name(), args[++i]);
                         break;
                     case COPY_BLOCK_SIZE:
-                        properties.put(PropKeysEnum.COPY_BLOCK_SIZE.name(), args[i++]);
+                        properties.put(PropKeysEnum.COPY_BLOCK_SIZE.name(), args[++i]);
                         break;
                     case USE_STREAM_COPY:
-                        properties.put(PropKeysEnum.USE_STREAM_COPY.name(), args[i++]);
+                        properties.put(PropKeysEnum.USE_STREAM_COPY.name(), args[++i]);
                         break;
                     case EXCLUDE_FILE_TYPES:
-                        properties.put(PropKeysEnum.EXCLUDE_FILE_TYPES.name(), args[i++]);
+                        properties.put(PropKeysEnum.EXCLUDE_FILE_TYPES.name(), args[++i]);
                         break;
                     case EXCLUDE_PATTERNS:
-                        properties.put(PropKeysEnum.EXCLUDE_PATTERNS.name(), args[i++]);
+                        properties.put(PropKeysEnum.EXCLUDE_PATTERNS.name(), args[++i]);
                         break;
                     case COPY_THREADS:
-                        properties.put(PropKeysEnum.COPY_THREADS.name(), args[i++]);
+                        properties.put(PropKeysEnum.COPY_THREADS.name(), args[++i]);
                         break;
                     case REPLACE_CHARS:
-                        properties.put(PropKeysEnum.REPLACE_CHARS.name(), args[i++]);
+                        properties.put(PropKeysEnum.REPLACE_CHARS.name(), args[++i]);
                         break;
                     case CHECKSUM_SCHEME:
-                        properties.put(PropKeysEnum.CHECKSUM_SCHEME.name(), args[i++]);
+                        properties.put(PropKeysEnum.CHECKSUM_SCHEME.name(), args[++i]);
                         break;
                     case FAIL_FAST:
-                        properties.put(PropKeysEnum.FAIL_FAST.name(), args[i++]);
+                        properties.put(PropKeysEnum.FAIL_FAST.name(), args[++i]);
                         break;
                     case SHALLOW_FILE_COMPARISON:
-                        properties.put(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), args[i++]);
+                        properties.put(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), args[++i]);
                         break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + arg);
