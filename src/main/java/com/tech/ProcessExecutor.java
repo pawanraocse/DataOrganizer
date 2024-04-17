@@ -54,10 +54,10 @@ public class ProcessExecutor {
     private final Set<String> optionalPathSequences;
     private final ExecutorService executorService;
 
-    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "Decade->Series Title->Year->Episode Number;Episode Title->Title_Version_Additional_Infor";
+    private static final String DEFAULT_FOLDER_SEQUENCE_PATH = "decade->series title->year->episode number;episode title->title_version_additional_infor";
 
-    private static final String DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS = "Series Title->Episode Number->Title_Version_Additional_Infor";
-    private static final String DEFAULT_GUID_NAME = "GUID";
+    private static final String DEFAULT_FOLDER_SEQUENCE_OPTIONAL_FIELDS = "series title->episode number->title_version_additional_infor";
+    private static final String DEFAULT_GUID_NAME = "guid";
     private static final DecimalFormat decimalFormat = new DecimalFormat("0.#");
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private final Properties properties;
@@ -101,7 +101,7 @@ public class ProcessExecutor {
         shallowFileComparison = PropFileHandler.getBoolean(PropKeysEnum.SHALLOW_FILE_COMPARISON.name(), this.properties, false);
 
         folderSequence = folderSequence == null || folderSequence.trim().isEmpty() ? DEFAULT_FOLDER_SEQUENCE_PATH : folderSequence.trim();
-        pathSequences = folderSequence.split("->");
+        pathSequences = Arrays.stream(folderSequence.split("->")).map(String::trim).toArray(String[]::new);
 
         String optionalFields = this.properties.getProperty(PropKeysEnum.OPTIONAL_PATH_FIELDS.name());
         optionalFields = optionalFields == null ? null : optionalFields.trim();
@@ -202,7 +202,7 @@ public class ProcessExecutor {
     }
 
     private boolean isValidGUIDName(final Map<String, String> colKeyValueMapInCurrentRow, final int rowIndex) {
-        String guidValue = colKeyValueMapInCurrentRow.get(DEFAULT_GUID_NAME);
+        String guidValue = colKeyValueMapInCurrentRow.get(DEFAULT_GUID_NAME.toLowerCase());
         if (guidValue == null || guidValue.isEmpty()) {
             logger.info("Skipping row index {} as the guid name is blank", rowIndex);
             return false;
@@ -225,7 +225,7 @@ public class ProcessExecutor {
         for (Cell cell : row) {
             CellType cellType = cell.getCellType();
             if (rowIndex == 0) {
-                colIndexToHeaderMap.put(cell.getColumnIndex(), cell.getStringCellValue().trim());
+                colIndexToHeaderMap.put(cell.getColumnIndex(), cell.getStringCellValue().trim().toLowerCase());
                 continue;
             }
             handleColumnValueAndStoreInKeyValueMap(colKeyValueMapInCurrentRow, colIndexToHeaderMap, cell, cellType);
@@ -292,7 +292,7 @@ public class ProcessExecutor {
     private File iterateOverPathSequenceToAppendPath(final String[] pathSequences, final Map<String, String> rowEntryKeyValuePair,
                                                      File folderPathToBeCreated, final int rowIndex) {
         for (final String pathSequence : pathSequences) {
-            final String[] paths = pathSequence.trim().split(";");
+            final String[] paths = Arrays.stream(pathSequence.trim().split(";")).map(String::trim).toArray(String[]::new);
             StringBuilder newChildName = null;
             for (String pathKey : paths) {
                 String pathValue = rowEntryKeyValuePair.get(pathKey);
@@ -468,10 +468,10 @@ public class ProcessExecutor {
     }
 
     enum DateKeys {
-        DECADE("Decade"),
-        YEAR("Year"),
-        MONTH("Month"),
-        DAY("Day");
+        DECADE("decade"),
+        YEAR("year"),
+        MONTH("month"),
+        DAY("day");
         final String value;
 
         DateKeys(String val) {
